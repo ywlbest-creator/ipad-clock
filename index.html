@@ -236,11 +236,13 @@
 
   .mid {
     display: grid;
-    grid-template-columns: 1.25fr 0.95fr;
-    gap: 18px;
-    flex: 0 1 auto;
-    min-height: 0;
+    grid-template-columns: 1.15fr 0.95fr 0.9fr;
+    gap: 16px;
+    flex: 0 0 auto;
+    align-items: stretch;
   }
+  .mid .card { overflow: hidden; }
+  .kid-note { margin-top: 10px; font-size: 13px; color: var(--muted); line-height: 1.4; }
   .card { padding: 16px 18px 18px; min-height: 0; }
   .card h2 {
     font-size: 13px;
@@ -270,7 +272,7 @@
     margin-bottom: 8px;
   }
   .outfit-col h3 span { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 13px; }
-  .kv { display: grid; grid-template-columns: 2.2em 1fr; gap: 5px 10px; font-size: 15px; line-height: 1.45; }
+  .kv { display: grid; grid-template-columns: 2.2em 1fr; gap: 4px 8px; font-size: 14px; line-height: 1.4; }
   .kv dt { color: var(--dim); }
   .kv dd { color: var(--text); }
 
@@ -437,6 +439,13 @@
       </div>
       <div class="outfit-grid" id="outfit-body"></div>
     </article>
+    <article class="glass card outfit-card" id="kid-card">
+      <div class="outfit-head">
+        <h2 id="kid-title">睿航上学穿衣</h2>
+        <div class="outfit-tag" id="kid-tag"></div>
+      </div>
+      <div id="kid-body"></div>
+    </article>
     <article class="glass card">
       <h2>注意事项</h2>
       <ul class="tips-list" id="tips-list"></ul>
@@ -472,14 +481,14 @@
       </button>
     </div>
     <div class="transcript" id="transcript">
-      <span class="hint">点「问询」可以说：现在多少度、明天要不要带伞、穿什么、明早通勤、空气质量、未来几天……</span>
+      <span class="hint">点「问询」可以说：现在多少度、明天要不要带伞、穿什么、睿航穿什么、明早通勤、空气质量……</span>
     </div>
   </footer>
 <script>
 (function () {
   const TZ = "Asia/Shanghai";
-  const CACHE_KEY = "suzhou-desk-clock-v1";
-  const WEATHER_URL = "https://api.open-meteo.com/v1/forecast?latitude=31.30&longitude=120.62&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,precipitation_probability,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset,weather_code&timezone=Asia%2FShanghai&forecast_days=7";
+  const CACHE_KEY = "suzhou-desk-clock-v2";
+  const WEATHER_URL = "https://api.open-meteo.com/v1/forecast?latitude=31.30&longitude=120.62&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,uv_index_max,sunrise,sunset,weather_code&timezone=Asia%2FShanghai&forecast_days=7";
   const AIR_URL = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=31.30&longitude=120.62&current=pm2_5,us_aqi&timezone=Asia%2FShanghai";
 
   const ICONS = {
@@ -698,6 +707,10 @@
     applySky(d);
     const focusTomorrow = hourNum(d) >= 18;
     if (weather && lastFocusTomorrow !== null && focusTomorrow !== lastFocusTomorrow) renderAll();
+    else if (weather && lastKidDate) {
+      const k = focusSchoolDay(d);
+      if (k !== lastKidDate) renderAll();
+    }
   }
 
   function aqiInfo(aqi) {
@@ -729,8 +742,10 @@
         hour: Number(t.slice(11, 13)),
         date: t.slice(0, 10),
         temp: h.temperature_2m[i + k],
+        apparent: (h.apparent_temperature && h.apparent_temperature[i + k] != null) ? h.apparent_temperature[i + k] : h.temperature_2m[i + k],
         pop: h.precipitation_probability[i + k],
-        code: h.weather_code[i + k]
+        code: h.weather_code[i + k],
+        wind: (h.wind_speed_10m && h.wind_speed_10m[i + k] != null) ? h.wind_speed_10m[i + k] : 0
       });
     }
     return out;
@@ -768,8 +783,130 @@
     const dt = new Date(Date.UTC(y, m - 1, dd));
     return "周" + CN_DAY[dt.getUTCDay()];
   }
+
   function hoursInRange(isoDate, h0, h1) {
     return hourlyFrom(isoDate + "T00:00", 24).filter((x) => x.hour >= h0 && x.hour <= h1);
+  }
+  function isoWeekday(iso) {
+    const [y, m, dd] = iso.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, dd)).getUTCDay();
+  }
+  function isSchoolDay(iso) {
+    const w = isoWeekday(iso);
+    return w >= 1 && w <= 5;
+  }
+  function nextSchoolIso(afterIso) {
+    let iso = addDays(afterIso, 1);
+    for (let i = 0; i < 8; i++) {
+      if (isSchoolDay(iso)) return iso;
+      iso = addDays(iso, 1);
+    }
+    return iso;
+  }
+  /* Before 07:20 on a school day → today; after 07:20 (incl. after 18:00) or weekend → next school day. */
+  function focusSchoolDay(d) {
+    const today = ymd(d);
+    const h = hourNum(d);
+    const mi = Number(tzParts(d, { minute: "numeric" }).minute);
+    const afterLeave = h > 7 || (h === 7 && mi >= 20);
+    if (isSchoolDay(today) && !afterLeave) return today;
+    return nextSchoolIso(today);
+  }
+  function kidOutfitFor(tLeave, tDay, wind, pop, code) {
+    let top, bottom, shoes;
+    const acc = [];
+    if (tLeave >= 28) {
+      top = "短袖校服或短袖T恤";
+      bottom = "校服短裤或薄长裤";
+      shoes = "运动鞋";
+    } else if (tLeave >= 22) {
+      top = "薄长袖校服";
+      bottom = "校服长裤";
+      shoes = "运动鞋";
+    } else if (tLeave >= 15) {
+      top = "长袖校服，外加薄校服外套";
+      bottom = "校服长裤";
+      shoes = "运动鞋";
+    } else if (tLeave >= 8) {
+      top = "长袖校服，外加校服外套或薄羽绒背心";
+      bottom = "校服长裤";
+      shoes = "运动鞋";
+    } else if (tLeave >= 0) {
+      top = "长袖校服加毛衣，外加厚校服外套或羽绒背心";
+      bottom = "校服长裤，可加保暖裤";
+      shoes = "保暖运动鞋";
+      acc.push("帽子、手套");
+    } else {
+      top = "保暖内衣加校服，外加羽绒服";
+      bottom = "加绒校服裤或保暖裤";
+      shoes = "保暖运动鞋";
+      acc.push("帽子、手套、围巾");
+    }
+    if (wind >= 25 && tLeave < 18) acc.push("风大，外套拉链拉好");
+    if (pop >= 40) acc.push("雨伞、雨衣");
+    else if (pop >= 20 || isRainCode(code)) acc.push("备一把雨伞");
+    let dayNote = "白天最高 " + round0(tDay) + "°";
+    if (tDay - tLeave >= 6 && tDay >= 15 && tLeave < 18) dayNote += "，到校可脱掉外套";
+    else if (tDay >= tLeave + 4) dayNote += "，热了可以减衣";
+    return { top, bottom, shoes, acc: acc.join("，") || "无需特别配件", dayNote };
+  }
+  let lastKidDate = null;
+  function buildKidOutfitModel(d) {
+    const date = focusSchoolDay(d);
+    lastKidDate = date;
+    const day = dailyAt(date);
+    if (!day) return null;
+    const hrs = hoursInRange(date, 7, 8);
+    const at7 = hrs.find((x) => x.hour === 7) || hrs[0];
+    const temps = hrs.map((x) => x.temp);
+    const apps = hrs.map((x) => (x.apparent != null ? x.apparent : x.temp));
+    const pops = hrs.map((x) => x.pop);
+    const winds = hrs.map((x) => x.wind || 0);
+    const codes = hrs.map((x) => x.code);
+    const leaveTemp = at7 ? (at7.apparent != null ? at7.apparent : at7.temp) : (day.min);
+    const leaveAir = at7 ? at7.temp : day.min;
+    const pop = pops.length ? Math.max.apply(null, pops) : day.pop;
+    const wind = winds.length ? Math.max.apply(null, winds) : 0;
+    const code = (at7 && at7.code != null) ? at7.code : day.code;
+    const rec = kidOutfitFor(leaveTemp, day.max, wind, pop, code);
+    const today = ymd(d);
+    const wlab = weekLabel(date, today);
+    const weekday = "周" + CN_DAY[isoWeekday(date)];
+    /* Weekends (and Friday night → Monday) prefer 「周一 07:20」; otherwise 今天/明天. */
+    let when;
+    if (wlab === "今天") when = "今天 07:20";
+    else if (wlab === "明天" && isoWeekday(date) !== 1) when = "明天 07:20";
+    else when = weekday + " 07:20";
+    return {
+      date, when, leaveTemp, leaveAir, dayTemp: day.max, pop, wind, code, rec,
+      label: when + "  ·  " + round0(leaveTemp) + "°"
+    };
+  }
+  function renderKidOutfit(d) {
+    const el = document.getElementById("kid-body");
+    if (!el) return;
+    const m = buildKidOutfitModel(d);
+    if (!m) { el.innerHTML = "<p>暂无数据</p>"; return; }
+    document.getElementById("kid-title").textContent = "睿航上学穿衣";
+    document.getElementById("kid-tag").textContent = m.label;
+    const rec = m.rec;
+    el.innerHTML =
+      "<div class=\"outfit-col\"><h3>上学出门<span>" + round0(m.leaveAir) + "° · 体感 " + round0(m.leaveTemp) + "°</span></h3><dl class=\"kv\">" +
+      "<dt>上衣</dt><dd>" + rec.top + "</dd>" +
+      "<dt>下装</dt><dd>" + rec.bottom + "</dd>" +
+      "<dt>鞋</dt><dd>" + rec.shoes + "</dd>" +
+      "<dt>配件</dt><dd>" + rec.acc + "</dd></dl>" +
+      "<div class=\"kid-note\">" + rec.dayNote + "</div></div>";
+  }
+  function kidClothesSpeech() {
+    const m = buildKidOutfitModel(nowDate());
+    if (!m) return "暂时没有睿航的穿衣建议。";
+    const rec = m.rec;
+    let s = "睿航" + m.when + "从园区上学出门，气温大约" + round0(m.leaveAir) + "度，体感" + round0(m.leaveTemp) + "度。";
+    s += "上衣建议" + rec.top + "，下装" + rec.bottom + "，鞋子" + rec.shoes;
+    if (rec.acc) s += "，" + rec.acc;
+    s += "。" + rec.dayNote.replace("°", "度") + "。";
+    return s;
   }
 
   function outfitFor(morningTemp, dayTemp, wind, pop, code, swing) {
@@ -1144,6 +1281,7 @@
     applySky(d);
     renderNow(d);
     renderOutfit(d);
+    renderKidOutfit(d);
     renderTips(d);
     renderStrip(d);
     drawHourlyChart(d);
@@ -1324,7 +1462,7 @@
   function fullSummary() {
     if (!weather) return "天气数据还没准备好，请稍后再试。";
     const tips = buildTips(nowDate()).map((t) => t.text).join("。");
-    return timeSpeech() + currentSpeech() + clothesSpeech() + tips;
+    return timeSpeech() + currentSpeech() + clothesSpeech() + kidClothesSpeech() + tips;
   }
 
   function answerIntent(q) {
@@ -1332,6 +1470,7 @@
     const s = String(q || "").replace(/\s+/g, "");
     if (/通勤|明早|上班|高速|镇江/.test(s)) return commuteSpeech();
     if (/空气|雾霾|pm2|PM2|口罩|污染|aqi|AQI/.test(s)) return aqiSpeech();
+    if (/儿子|睿航/.test(s)) return kidClothesSpeech();
     if (/穿什么|穿衣|衣服|穿搭|穿啥|怎么穿/.test(s)) return clothesSpeech();
     if (/趋势|未来几天|未来七天|一周|七天/.test(s)) return trendSpeech();
     if (/后天/.test(s)) return daySpeech(2);
@@ -1405,7 +1544,7 @@
   }
 
   window.__desk = {
-    answerIntent, buildOutfitModel, buildTips, wmo, lunarText, focusDay, nowDate, applySky,
+    answerIntent, buildOutfitModel, buildKidOutfitModel, buildTips, wmo, lunarText, focusDay, focusSchoolDay, nowDate, applySky, kidClothesSpeech,
     getState: () => ({ weather, air, fetchedAt, fromCache })
   };
 
