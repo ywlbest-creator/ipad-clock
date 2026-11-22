@@ -113,9 +113,11 @@
   .block-wear {
     grid-column: 1; grid-row: 2;
     display: flex; flex-direction: column; justify-content: center;
-    gap: 36px; padding: 36px 32px; min-width: 0; min-height: 0;
+    gap: 22px; padding: 28px 32px; min-width: 0; min-height: 0;
   }
   .wear-row { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 16px; row-gap: 6px; font-size: 48px; font-weight: 400; line-height: 1.15; }
+  .wear-row.home { font-size: 28px; }
+  .wear-row.home .kw { display: flex; flex-direction: column; gap: 4px; flex: 1 1 100%; }
   .wear-row .who { width: auto; flex: 0 0 auto; font-size: 20px; font-weight: 500; }
   .wear-row .when { width: auto; flex: 0 0 auto; font-size: 20px; }
   .wear-row .kw { flex: 1 1 100%; min-width: 0; }
@@ -126,6 +128,7 @@
     .block-time { grid-row: 1; } .block-weather { grid-row: 2; } .block-wear { grid-row: 3; }
     #clock, #now-temp { font-size: clamp(100px, 16vw, 140px); }
     .wear-row { font-size: 36px; }
+    .wear-row.home { font-size: 24px; }
     .days { max-height: none; }
   }
 
@@ -218,6 +221,7 @@
     <section class="block-wear" aria-label="穿衣建议">
       <div class="wear-row" id="outfit-row"></div>
       <div class="wear-row" id="kid-row"></div>
+      <div class="wear-row home" id="home-row"></div>
     </section>
   </div>
 <script>
@@ -760,6 +764,51 @@
     el.innerHTML = '<span class="who">老于</span><span class="when">' + when + '</span><span class="kw">' + dadKeywords(m) + "</span>";
   }
 
+  function overnightMin(d) {
+    const today = dailyAt(ymd(d));
+    if (hourNum(d) >= 18) {
+      const tm = dailyAt(addDays(ymd(d), 1));
+      if (tm && tm.min != null) return tm.min;
+    }
+    return today && today.min;
+  }
+  function homeClimateLine(d) {
+    if (!weather || !weather.current) return "";
+    const out = weather.current.temperature_2m;
+    const rh = weather.current.relative_humidity_2m;
+    const low = overnightMin(d);
+    const night = isNight(d);
+    const floor = Math.min(out, low != null ? low : out);
+    const cold = floor <= 11;
+    const veryCold = floor < 5;
+    let ac = "空调 关";
+    if (out >= 28) ac = "空调 制冷";
+    else if (cold) ac = "空调 制热";
+    const oil = (night && cold) || veryCold;
+    let room = "室温 22–24℃";
+    if (ac === "空调 制冷") room = "室温 26℃";
+    else if (ac === "空调 制热" || out < 15) room = "室温 20–22℃";
+    let hum = "湿度 40–60%";
+    if (rh != null) {
+      if (ac === "空调 制热") {
+        if (rh < 50) hum += " · 加湿";
+        else if (rh >= 85) hum += " · 除湿";
+      } else if (rh < 40) hum += " · 加湿";
+      else if (rh > 70) hum += " · 除湿";
+    }
+    const devices = oil ? (ac + " · 油汀 卧室") : ac;
+    return { devices: devices, env: room + " · " + hum, text: devices + " · " + room + " · " + hum };
+  }
+  function renderHomeClimate(d) {
+    const el = document.getElementById("home-row");
+    if (!el) return;
+    const line = homeClimateLine(d);
+    if (!line) { el.innerHTML = ""; return; }
+    el.innerHTML = '<span class="who">居家</span><span class="kw"><span class="home-a">' +
+      line.devices + '</span><span class="home-b">' + line.env + "</span></span>";
+  }
+
+
   function commuteWindow(isoDate) {
     const hrs = hoursInRange(isoDate, 5, 8);
     if (!hrs.length) return null;
@@ -1079,6 +1128,7 @@
     renderNow(d);
     renderOutfit(d);
     renderKidOutfit(d);
+    renderHomeClimate(d);
     renderStrip(d);
     renderWeekRow(d);
     updateStamp();
