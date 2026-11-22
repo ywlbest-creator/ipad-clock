@@ -23,17 +23,17 @@
   .main {
     flex: 1; min-height: 0;
     display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     gap: 16px;
   }
   .block-time {
     grid-column: 1; grid-row: 1;
     display: flex; flex-direction: column; justify-content: center;
-    padding: 8px 8px 12px 4px; min-width: 0;
+    padding: 8px 16px 8px 8px; min-width: 0; min-height: 0;
   }
   #clock {
-    font-size: clamp(160px, 22vw, 320px);
+    font-size: clamp(110px, 15.5vw, 230px);
     font-weight: 200;
     font-variation-settings: "wght" 200;
     letter-spacing: -0.055em;
@@ -44,7 +44,7 @@
   #date-line { margin-top: 18px; font-size: 16px; font-weight: 400; line-height: 1.45; }
   #updated { margin-top: 6px; font-size: 11px; letter-spacing: 0.08em; }
   .block-weather {
-    grid-column: 2; grid-row: 1;
+    grid-column: 2; grid-row: 1 / -1;
     display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   }
   .wx-hero { text-align: center; flex: 0 0 auto; }
@@ -93,19 +93,21 @@
   .d-dot { position: absolute; top: 50%; width: 7px; height: 7px; margin-left: -3.5px; margin-top: -3.5px;
     border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0,0,0,0.25); }
   .block-wear {
-    grid-column: 1 / -1; grid-row: 2;
+    grid-column: 1; grid-row: 2;
     display: flex; flex-direction: column; justify-content: center;
-    gap: 8px; padding: 14px 22px; min-height: 72px;
+    gap: 28px; padding: 28px 32px; min-width: 0; min-height: 0;
   }
-  .wear-row { display: flex; align-items: baseline; gap: 16px; font-size: 20px; font-weight: 400; }
-  .wear-row .who { width: 2.6em; flex: 0 0 2.6em; font-size: 14px; font-weight: 500; }
-  .wear-row .when { width: 2.6em; flex: 0 0 2.6em; font-size: 13px; }
+  .wear-row { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 18px; row-gap: 8px; font-size: 34px; font-weight: 400; line-height: 1.2; }
+  .wear-row .who { width: 2.6em; flex: 0 0 2.6em; font-size: 17px; font-weight: 500; }
+  .wear-row .when { width: 2.6em; flex: 0 0 2.6em; font-size: 16px; }
+  .wear-row .kw { flex: 1 1 auto; min-width: 0; }
   @media (orientation: portrait) {
     body { overflow: auto; height: auto; min-height: 100dvh; }
-    .main { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+    .main { grid-template-columns: 1fr; grid-template-rows: 1fr 2fr 1fr; }
     .block-time, .block-weather, .block-wear { grid-column: 1; }
     .block-time { grid-row: 1; } .block-weather { grid-row: 2; } .block-wear { grid-row: 3; }
-    #clock { font-size: clamp(140px, 28vw, 280px); }
+    #clock { font-size: clamp(96px, 18vw, 180px); }
+    .wear-row { font-size: 28px; gap: 20px; }
     .days { max-height: 360px; }
   }
 
@@ -137,7 +139,7 @@
   .d-fill { background: linear-gradient(90deg, #8a7340, #e6c56a, #f3e2a8); }
   .day-row { border-top: 1px solid rgba(230,197,106,0.12); }
   .day-row:first-child { border-top: 0; }
-  .block-wear { border-top: 1px solid rgba(230,197,106,0.22); padding-left: 8px; padding-right: 8px; }
+  .block-wear { border-top: 1px solid rgba(230,197,106,0.22); padding: 32px 24px 32px 8px; }
   .d-ic, .hour .e { color: #e6c56a; }
   .aqi-thumb { background: #e6c56a; box-shadow: 0 0 0 2px #000, 0 0 10px rgba(230,197,106,0.7); }
 
